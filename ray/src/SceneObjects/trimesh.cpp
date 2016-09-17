@@ -5,6 +5,7 @@
 #include <string.h>
 #include "trimesh.h"
 #include "../ui/TraceUI.h"
+#include <iostream>
 extern TraceUI* traceUI;
 
 using namespace std;
@@ -91,14 +92,52 @@ bool TrimeshFace::intersect(ray& r, isect& i) const {
 // intersection in u (alpha) and v (beta).
 bool TrimeshFace::intersectLocal(ray& r, isect& i) const
 {
-    glm::dvec3 a = parent->vertices[ids[0]];
-    glm::dvec3 b = parent->vertices[ids[1]];
-    glm::dvec3 c = parent->vertices[ids[2]];
+    glm::dvec3 a_coords = parent->vertices[0];
+    glm::dvec3 b_coords = parent->vertices[1];
+    glm::dvec3 c_coords = parent->vertices[2];
+    glm::dvec3 vab = (b_coords - a_coords);
+    glm::dvec3 vac = (c_coords - a_coords);
+    glm::dvec3 vcb = (b_coords - c_coords);
 
-    double plane = normal * (r.d);
-    cout<<"plane "<< plane;
+    // cout<<"\n\nValue of a: "<<a_coords[0]<<" "<<a_coords[1]<<" "<<a_coords[2];
+    // cout<<"\n\nValue of b: "<<b_coords[0]<<" "<<b_coords[1]<<" "<<b_coords[2];
+    // cout<<"\n\nValue of c: "<<c_coords[0]<<" "<<c_coords[1]<<" "<<c_coords[2];
 
-    return false;
+    glm::dvec3 normal = glm::cross(vab, vac);
+    // cout<<"\n\nValue of normal: "<<normal[0]<<" "<<normal[1]<<" "<<normal[2];
+    glm::normalize(normal);
+    // cout<<"\n\nValue of normalize: "<<normal[0]<<" "<<normal[1]<<" "<<normal[2];
+    glm::dvec3 d = r.getDirection();
+    glm::dvec3 p = r.getPosition();
+
+    double t = (glm::dot(normal, p+d))/glm::dot(normal, d);
+
+    if(t < RAY_EPSILON)
+    {
+        cout<<"\n\nBEHIND!!";
+        return false;
+    }
+    // cout<<"\n\nValue of p: "<<p[0]<<" "<<p[1]<<" "<<p[2];
+    // cout<<"\nValue of t: "<<t;
+    glm::dvec3 isection = p + (t * d);
+    double viu = glm::dot(isection, vab);
+    double viv = glm::dot(isection, vac);
+
+    //Get barycentrics
+    double area = glm::dot(glm::dot(vab,vac),glm::dot(vab, vac)) - glm::dot(glm::dot(vab,vab), glm::dot(vac,vac));
+    double beta = (glm::dot(glm::dot(vab,vac),viv) - glm::dot(glm::dot(vac,vac),viu))/area;
+    double gamma = (glm::dot(glm::dot(vab,vac),viu) - glm::dot(glm::dot(vab,vab),viv))/area;
+    double alpha = 1.0 - (beta + gamma);
+
+    if(alpha < 0.0 || beta < 0.0 || gamma < 0.0)
+    {
+        return false;
+    }
+        i.setT(t);
+	i.
+ 
+    // cout<<"\n\nt's x, y, z: "<<t[0]<<" "<<t[1]<<" "<<t[2];
+    return true;
 }
 
 void Trimesh::generateNormals()

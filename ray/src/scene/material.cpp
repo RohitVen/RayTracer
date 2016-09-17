@@ -35,17 +35,25 @@ glm::dvec3 Material::shade(Scene *scene, const ray& r, const isect& i) const
 	// When you're iterating through the lights,
 	// you'll want to use code that looks something
 	// like this:
-	//
-	// for ( vector<Light*>::const_iterator litr = scene->beginLights(); 
-	// 		litr != scene->endLights(); 
-	// 		++litr )
-	// {
-	// 		Light* pLight = *litr;
-	// 		.
-	// 		.
-	// 		.
-	// }
-	return kd(i);
+
+	glm::dvec3 color = {0,0,0};
+	glm::dvec3 isect_pos = r.at(i.t);
+
+	for ( vector<Light*>::const_iterator litr = scene->beginLights(); 
+			litr != scene->endLights(); 
+			++litr )
+	{
+			Light* pLight = *litr;
+			glm::dvec3 light_dir = pLight->getDirection(isect_pos);
+			glm::dvec3 norm = i.N;
+			double dot_prod = glm::dot(light_dir,norm);
+			double to_add = glm::max(dot_prod,0.0);
+			color += to_add*kd(i);
+	}
+	color += ke(i);
+	color += (ka(i)*scene->ambient());
+
+	return color;
 }
 
 TextureMap::TextureMap( string filename ) {

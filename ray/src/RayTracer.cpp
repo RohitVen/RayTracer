@@ -25,7 +25,7 @@ extern TraceUI* traceUI;
 // Use this variable to decide if you want to print out
 // debugging messages.  Gets set in the "trace single ray" mode
 // in TraceGLWindow, for example.
-bool debugMode = false;
+bool debugMode = true;
 
 // Trace a top-level ray through pixel(i,j), i.e. normalized window coordinates (x,y),
 // through the projection plane, and out into the scene.  All we do is
@@ -34,12 +34,13 @@ bool debugMode = false;
 
 glm::dvec3 RayTracer::trace(double x, double y, unsigned char *pixel, unsigned int ctr)
 {
+	cout<<"\n\nInside Trace\n\n";
     // Clear out the ray cache in the scene for debugging purposes,
   if (TraceUI::m_debug) scene->intersectCache.clear();
-
     ray r(glm::dvec3(0,0,0), glm::dvec3(0,0,0), pixel, ctr, glm::dvec3(1,1,1), ray::VISIBILITY);
     scene->getCamera().rayThrough(x,y,r);
     double dummy;
+    cout<<"\n\nCalling TraceRay\n\n";
     glm::dvec3 ret = traceRay(r, glm::dvec3(1.0,1.0,1.0), traceUI->getDepth() , dummy);
     ret = glm::clamp(ret, 0.0, 1.0);
     return ret;
@@ -48,13 +49,14 @@ glm::dvec3 RayTracer::trace(double x, double y, unsigned char *pixel, unsigned i
 glm::dvec3 RayTracer::tracePixel(int i, int j, unsigned int ctr)
 {
 	glm::dvec3 col(0,0,0);
-
+	cout<<"\n\nInside TracePixel\n\n";
 	if( ! sceneLoaded() ) return col;
 
 	double x = double(i)/double(buffer_width);
 	double y = double(j)/double(buffer_height);
 
 	unsigned char *pixel = buffer + ( i + j * buffer_width ) * 3;
+	cout<<"\n\nCalling Trace\n\n";
 	col = trace(x, y, pixel, ctr);
 
 	pixel[0] = (int)( 255.0 * col[0]);
@@ -70,7 +72,7 @@ glm::dvec3 RayTracer::traceRay(ray& r, const glm::dvec3& thresh, int depth, doub
 {
 	isect i;
 	glm::dvec3 colorC;
-
+	
 	if(scene->intersect(r, i)) {
 		// YOUR CODE HERE
 
@@ -85,7 +87,24 @@ glm::dvec3 RayTracer::traceRay(ray& r, const glm::dvec3& thresh, int depth, doub
 
 		const Material& m = i.getMaterial();
 		colorC = m.shade(scene, r, i);
-	} else {
+
+		if(!depth)
+			return colorC;
+
+		glm::dvec3 ray_pos = r.at(i.t);
+		glm::dvec3 ray_norm_vec = r.d;
+
+		if(!(glm::length(m.kr(i)) == 0.0))
+		{
+			glm::dvec3 reflection = (ray_norm_vec - (i.N * 2.0) * (i.N * ray_norm_vec));
+			reflection = glm::normalize(reflection);
+			ray reflection_ray(ray_pos, reflection, ray::REFLECTION);
+			glm::dvec3 reflection_color = traceRay(reflection_ray, thresh, depth - 1, t);
+			colorC += glm::dot(reflection_color, m.kr(i));
+		}
+	} 
+	else {
+		cout<<"\n\n No Intersection\n\n";
 		// No intersection.  This ray travels to infinity, so we color
 		// it according to the background color, which in this (simple) case
 		// is just black.
@@ -180,8 +199,15 @@ void RayTracer::traceSetup(int w, int h)
 
 void RayTracer::traceImage(int w, int h, int bs, double thresh)
 {
-	// YOUR CODE HERE
-	// FIXME: Start one or more threads for ray tracing
+	// int i=1;
+	// int j=1;
+	// for(i;i<=w;i++)
+	// {
+	// 	for(j;j<=h;j++)
+	// 	{
+	// 		tracePixel(i,j,0);  //TRASH CTR VALUE
+	// 	}
+	// }
 }
 
 int RayTracer::aaImage(int samples, double aaThresh)
