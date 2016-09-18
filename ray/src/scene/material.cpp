@@ -39,20 +39,32 @@ glm::dvec3 Material::shade(Scene *scene, const ray& r, const isect& i) const
 	glm::dvec3 color = {0,0,0};
 	glm::dvec3 isect_pos = r.at(i.t);
 
+	color += ke(i); //e light
+	color += (ka(i)*scene->ambient()); //Ambient
+
 	for ( vector<Light*>::const_iterator litr = scene->beginLights(); 
 			litr != scene->endLights(); 
 			++litr )
 	{
-			Light* pLight = *litr;
-			glm::dvec3 light_dir = pLight->getDirection(isect_pos);
+			glm::dvec3 pLight = (*litr)->shadowAttenuation(r, isect_pos);
+			glm::dvec3 light_dir = (*litr)->getDirection(isect_pos);
 			glm::dvec3 norm = i.N;
 			double dot_prod = glm::dot(light_dir,norm);
 			double to_add = glm::max(dot_prod,0.0);
-			color += to_add*kd(i);
-	}
-	color += ke(i);
-	color += (ka(i)*scene->ambient());
+			glm::dvec3 diffusal = to_add*kd(i); //Diffusal
 
+			glm::dvec3 light_norm = light_dir * -1.0;
+			glm::dvec3 reflection = (light_norm - (i.N * 2.0) * (i.N * light_norm));
+			glm::normalize(reflection);
+
+			glm::dvec3 v = (scene->getCamera().getEye() - isect_pos);
+			glm::normalize(v);
+			dot_prod = glm::dot(v, reflection);
+			to_add = glm::max(dot_prod, 0.0);
+			glm::dvec3 specular = ks(i) * pow(to_add, shininess(i));
+
+			color += ((*litr)->distanceAttenuation(isect_pos) * glm::dot(pLight, (diffusal + specular)));
+	}
 	return color;
 }
 

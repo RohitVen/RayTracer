@@ -34,29 +34,30 @@ bool debugMode = true;
 
 glm::dvec3 RayTracer::trace(double x, double y, unsigned char *pixel, unsigned int ctr)
 {
-	cout<<"\n\nInside Trace\n\n";
+	// cout<<"\n\nInside Trace\n\n";
     // Clear out the ray cache in the scene for debugging purposes,
   if (TraceUI::m_debug) scene->intersectCache.clear();
     ray r(glm::dvec3(0,0,0), glm::dvec3(0,0,0), pixel, ctr, glm::dvec3(1,1,1), ray::VISIBILITY);
     scene->getCamera().rayThrough(x,y,r);
     double dummy;
-    cout<<"\n\nCalling TraceRay\n\n";
+    // cout<<"\n\nCalling TraceRay\n\n";
     glm::dvec3 ret = traceRay(r, glm::dvec3(1.0,1.0,1.0), traceUI->getDepth() , dummy);
     ret = glm::clamp(ret, 0.0, 1.0);
+    // cout<<"\n\n ret values: "<<ret[0]<<" "<<ret[1]<<" "<<ret[2];
     return ret;
 }
 
 glm::dvec3 RayTracer::tracePixel(int i, int j, unsigned int ctr)
 {
 	glm::dvec3 col(0,0,0);
-	cout<<"\n\nInside TracePixel\n\n";
+	// cout<<"\n\nInside TracePixel\n\n";
+
 	if( ! sceneLoaded() ) return col;
 
 	double x = double(i)/double(buffer_width);
 	double y = double(j)/double(buffer_height);
-
 	unsigned char *pixel = buffer + ( i + j * buffer_width ) * 3;
-	cout<<"\n\nCalling Trace\n\n";
+	// cout<<"\n\nCalling Trace\n\n";
 	col = trace(x, y, pixel, ctr);
 
 	pixel[0] = (int)( 255.0 * col[0]);
@@ -96,24 +97,25 @@ glm::dvec3 RayTracer::traceRay(ray& r, const glm::dvec3& thresh, int depth, doub
 
 		if(!(glm::length(m.kr(i)) == 0.0))
 		{
+			cout<<"\n\nGetting reflection!";
 			glm::dvec3 reflection = (ray_norm_vec - (i.N * 2.0) * (i.N * ray_norm_vec));
 			reflection = glm::normalize(reflection);
 			ray reflection_ray(ray_pos, reflection, ray::REFLECTION);
 			glm::dvec3 reflection_color = traceRay(reflection_ray, thresh, depth - 1, t);
 			colorC += glm::dot(reflection_color, m.kr(i));
 		}
+		return colorC;
 	} 
 	else {
-		cout<<"\n\n No Intersection\n\n";
+		// cout<<"\n\n No Intersection";
 		// No intersection.  This ray travels to infinity, so we color
 		// it according to the background color, which in this (simple) case
 		// is just black.
 		// 
 		// FIXME: Add CubeMap support here.
 
-		colorC = glm::dvec3(0.0, 0.0, 0.0);
+		return glm::dvec3(0.0, 0.0, 0.0);
 	}
-	return colorC;
 }
 
 RayTracer::RayTracer()
@@ -199,15 +201,17 @@ void RayTracer::traceSetup(int w, int h)
 
 void RayTracer::traceImage(int w, int h, int bs, double thresh)
 {
-	// int i=1;
-	// int j=1;
-	// for(i;i<=w;i++)
-	// {
-	// 	for(j;j<=h;j++)
-	// 	{
-	// 		tracePixel(i,j,0);  //TRASH CTR VALUE
-	// 	}
-	// }
+	traceSetup(w, h);
+	int i=0;
+	int j=0;
+	for(i;i<w;++i)
+	{
+		for(j;j<h;++j)
+		{
+			tracePixel(i,j,0);  //TRASH CTR VALUE
+		}
+		j = 0;
+	}
 }
 
 int RayTracer::aaImage(int samples, double aaThresh)

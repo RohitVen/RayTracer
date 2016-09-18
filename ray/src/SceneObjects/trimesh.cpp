@@ -114,7 +114,6 @@ bool TrimeshFace::intersectLocal(ray& r, isect& i) const
 
     if(t < RAY_EPSILON)
     {
-        cout<<"\n\nBEHIND!!";
         return false;
     }
     // cout<<"\n\nValue of p: "<<p[0]<<" "<<p[1]<<" "<<p[2];
@@ -133,8 +132,43 @@ bool TrimeshFace::intersectLocal(ray& r, isect& i) const
     {
         return false;
     }
-        i.setT(t);
-	i.
+    i.setT(t);
+    i.setBary(alpha, beta, gamma);
+    i.setUVCoordinates({alpha, beta});
+    i.setObject(this);
+
+    if(parent->vertNorms)
+    {
+        glm::dvec3 norma = parent->normals[0];
+        glm::dvec3 normb = parent->normals[1];
+        glm::dvec3 normc = parent->normals[2];
+        i.N = (norma * alpha) + (normb * beta) + (normc * gamma);
+        glm::normalize(i.N);
+    }
+    else
+    {
+        i.N = normal;
+        glm::normalize(i.N);
+    }
+
+    if(parent->materials.empty())
+    {
+            i.setMaterial(this->getMaterial());
+    }
+    else
+    {
+        Material mata(*parent->materials[0]);
+        Material matb(*parent->materials[1]);
+        Material matc(*parent->materials[2]);
+
+        Material mat = (alpha * mata);
+        mat += (beta * matb);
+        mat += (gamma * matc);
+
+        i.setMaterial(mat);
+    }
+
+
  
     // cout<<"\n\nt's x, y, z: "<<t[0]<<" "<<t[1]<<" "<<t[2];
     return true;
