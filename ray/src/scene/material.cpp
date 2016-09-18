@@ -6,7 +6,6 @@ extern TraceUI* traceUI;
 
 #include "../fileio/bitmap.h"
 #include "../fileio/pngimage.h"
-#include <algorithm>
 
 using namespace std;
 extern bool debugMode;
