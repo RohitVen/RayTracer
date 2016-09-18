@@ -168,9 +168,6 @@ bool TrimeshFace::intersectLocal(ray& r, isect& i) const
         i.setMaterial(mat);
     }
 
-
- 
-    // cout<<"\n\nt's x, y, z: "<<t[0]<<" "<<t[1]<<" "<<t[2];
     return true;
 }
 

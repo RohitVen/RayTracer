@@ -6,6 +6,7 @@ extern TraceUI* traceUI;
 
 #include "../fileio/bitmap.h"
 #include "../fileio/pngimage.h"
+#include <algorithm>
 
 using namespace std;
 extern bool debugMode;
@@ -39,31 +40,41 @@ glm::dvec3 Material::shade(Scene *scene, const ray& r, const isect& i) const
 	glm::dvec3 color = {0,0,0};
 	glm::dvec3 isect_pos = r.at(i.t);
 
-	color += ke(i); //e light
+	color += ke(i); //Emissivity
 	color += (ka(i)*scene->ambient()); //Ambient
 
 	for ( vector<Light*>::const_iterator litr = scene->beginLights(); 
 			litr != scene->endLights(); 
 			++litr )
 	{
-			glm::dvec3 pLight = (*litr)->shadowAttenuation(r, isect_pos);
-			glm::dvec3 light_dir = (*litr)->getDirection(isect_pos);
-			glm::dvec3 norm = i.N;
+			Light *pLight = *litr; //Got a light?
+			glm::dvec3 light_dir = pLight->getDirection(isect_pos);
+			glm::dvec3 norm = i.N; //Here's the normal of the Intersection
+
+			//Calculating diffusal
 			double dot_prod = glm::dot(light_dir,norm);
-			double to_add = glm::max(dot_prod,0.0);
-			glm::dvec3 diffusal = to_add*kd(i); //Diffusal
+			double to_add = glm::max(dot_prod,0.0); 
+			glm::dvec3 diffusal = to_add * kd(i) 
+			* pLight->getColor(); //Final diffusal
 
-			glm::dvec3 light_norm = light_dir * -1.0;
-			glm::dvec3 reflection = (light_norm - (i.N * 2.0) * (i.N * light_norm));
-			glm::normalize(reflection);
+			//Calculating specular
+			glm::dvec3 neg_light_dir = light_dir * -1.0; //Since the light is coming from the other direction
+			glm::dvec3 R = neg_light_dir - (2.0 * (norm * neg_light_dir) * norm); // Equation to find a ray about a normal
+			glm::normalize(R);
 
-			glm::dvec3 v = (scene->getCamera().getEye() - isect_pos);
-			glm::normalize(v);
-			dot_prod = glm::dot(v, reflection);
+			glm::dvec3 V = (scene->getCamera().getEye() - isect_pos);
+			glm::normalize(V);
+			dot_prod = glm::dot(V, R);
 			to_add = glm::max(dot_prod, 0.0);
-			glm::dvec3 specular = ks(i) * pow(to_add, shininess(i));
+			glm::dvec3 specular = ks(i) * pow(to_add, shininess(i)) 
+			* pLight->getColor(); //Final specular
 
-			color += ((*litr)->distanceAttenuation(isect_pos) * glm::dot(pLight, (diffusal + specular)));
+			//Calculating f atten
+			glm::dvec3 f = 1.0/(0.25 + (0.25 * light_dir) + (0.25 * glm::dot(light_dir, light_dir)));
+			glm::dvec3 min = glm::min({1.0,1.0,1.0}, f);
+
+			//Add it all up!!
+			color += (diffusal + specular) * min;
 	}
 	return color;
 }
@@ -115,7 +126,21 @@ glm::dvec3 TextureMap::getMappedValue( const glm::dvec2& coord ) const
 	// and use these to perform bilinear interpolation
 	// of the values.
 
-	return glm::dvec3(1,1,1);
+	if (0 == data)
+      return glm::dvec3(1.0, 1.0, 1.0); //Taken from getPixelAt
+
+	int x = (int)(coord[0] * width);
+	int y = (int)(coord[1] * height);
+
+	if( x >= width )
+       x = width - 1;
+    if( y >= height )
+       y = height - 1;   //Taken from getPixelAt
+
+   	int pos = (y * width + x) * 3;
+   	glm::dvec3 color(double(data[pos])/255.0, double(data[pos+1])/255.0, double(data[pos+2])/255.0);
+
+	return color;
 }
 
 
