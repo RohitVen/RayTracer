@@ -29,11 +29,12 @@ public:
 		REFRACTION,
 		SHADOW
 	};
-
+	//My own ray construct
 	ray(const glm::dvec3 &pp,
 	    const glm::dvec3 &dd,
 	    RayType tt = VISIBILITY)
 		: p(pp), d(dd), t(tt) {}
+
 	ray(const glm::dvec3 &pp,
 	    const glm::dvec3 &dd,
 	    unsigned char *px,

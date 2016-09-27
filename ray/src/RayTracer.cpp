@@ -34,30 +34,29 @@ bool debugMode = true;
 
 glm::dvec3 RayTracer::trace(double x, double y, unsigned char *pixel, unsigned int ctr)
 {
-	// cout<<"\n\nInside Trace\n\n";
+
     // Clear out the ray cache in the scene for debugging purposes,
   if (TraceUI::m_debug) scene->intersectCache.clear();
     ray r(glm::dvec3(0,0,0), glm::dvec3(0,0,0), pixel, ctr, glm::dvec3(1,1,1), ray::VISIBILITY);
     scene->getCamera().rayThrough(x,y,r);
     double dummy;
-    // cout<<"\n\nCalling TraceRay\n\n";
+
     glm::dvec3 ret = traceRay(r, glm::dvec3(1.0,1.0,1.0), traceUI->getDepth() , dummy);
     ret = glm::clamp(ret, 0.0, 1.0);
-    // cout<<"\n\n ret values: "<<ret[0]<<" "<<ret[1]<<" "<<ret[2];
+
     return ret;
 }
 
 glm::dvec3 RayTracer::tracePixel(int i, int j, unsigned int ctr)
 {
 	glm::dvec3 col(0,0,0);
-	// cout<<"\n\nInside TracePixel\n\n";
 
 	if( ! sceneLoaded() ) return col;
 
 	double x = double(i)/double(buffer_width);
 	double y = double(j)/double(buffer_height);
 	unsigned char *pixel = buffer + ( i + j * buffer_width ) * 3;
-	// cout<<"\n\nCalling Trace\n\n";
+
 	col = trace(x, y, pixel, ctr);
 
 	pixel[0] = (int)( 255.0 * col[0]);
@@ -75,7 +74,7 @@ glm::dvec3 RayTracer::traceRay(ray& r, const glm::dvec3& thresh, int depth, doub
 	glm::dvec3 colorC;
 	
 	if(scene->intersect(r, i)) {
-		// YOUR CODE HERE
+		// FINISHED!!!
 
 		// An intersection occurred!  We've got work to do.  For now,
 		// this code gets the material for the surface that was intersected,
@@ -93,16 +92,54 @@ glm::dvec3 RayTracer::traceRay(ray& r, const glm::dvec3& thresh, int depth, doub
 			return colorC;
 
 		glm::dvec3 ray_pos = r.at(i.t);
-		glm::dvec3 ray_norm_vec = r.d;
+		glm::dvec3 ray_dir = r.d;
+		glm::dvec3 norm = i.N;
 
-		if(!(glm::length(m.kr(i)) == 0.0))
+		//Why reflect when we shouldn't?
+		if(glm::length(m.kr(i)) != 0)
 		{
-			cout<<"\n\nGetting reflection!";
-			glm::dvec3 reflection = (ray_norm_vec - (i.N * 2.0) * (i.N * ray_norm_vec));
-			reflection = glm::normalize(reflection);
-			ray reflection_ray(ray_pos, reflection, ray::REFLECTION);
-			glm::dvec3 reflection_color = traceRay(reflection_ray, thresh, depth - 1, t);
-			colorC += glm::dot(reflection_color, m.kr(i));
+			glm::dvec3 R = glm::reflect(ray_dir, i.N);
+			R = glm::normalize(R);
+			ray reflect(ray_pos, R, ray::REFLECTION);
+			glm::dvec3 col = traceRay(reflect, thresh, depth-1, t);
+			colorC += col * m.kr(i);
+		}
+		//Why refract when we shouldn't?
+		if(glm::length(m.kt(i)) != 0.0)
+		{
+			glm::dvec3 cos_i = -1.0 * ray_dir;
+			double enter = glm::dot(cos_i, norm);
+			double n_i;
+			double n_t;
+			double index;
+			if(enter > 0.0)
+			{
+				n_i = 1.0002772;
+				n_t = m.index(i);
+				norm = i.N;
+			}
+			else
+			{
+				n_i = m.index(i);
+				n_t = 1.0002772;
+				norm = -1.0 * i.N;
+			}
+			index = n_i / n_t;
+			if(enter == 0.0)
+			{
+				index = 0;
+				norm = {0.0,0.0,0.0};
+			}
+			
+			double tir = (1.0 - pow(index, 2) * (1.0 - (pow(enter, 2))));
+			if(tir > 0.0)
+			{
+				glm::dvec3 T = glm::refract(ray_dir, norm, index);
+				T = glm::normalize(T);
+				ray refract(ray_pos, T, ray::REFRACTION);
+				glm::dvec3 col = traceRay(refract, thresh, depth-1, t);
+				colorC += col * m.kt(i);
+			}
 		}
 		return colorC;
 	} 
@@ -113,6 +150,11 @@ glm::dvec3 RayTracer::traceRay(ray& r, const glm::dvec3& thresh, int depth, doub
 		// is just black.
 		// 
 		// FIXME: Add CubeMap support here.
+
+		if(traceUI->cubeMap())
+		{
+			return cubemap->getColor(r);
+		}
 
 		return glm::dvec3(0.0, 0.0, 0.0);
 	}
@@ -127,6 +169,8 @@ RayTracer::~RayTracer()
 {
 	delete scene;
 	delete [] buffer;
+	if(cubemap)
+		delete cubemap;
 }
 
 void RayTracer::getBuffer( unsigned char *&buf, int &w, int &h )
@@ -216,14 +260,70 @@ void RayTracer::traceImage(int w, int h, int bs, double thresh)
 
 int RayTracer::aaImage(int samples, double aaThresh)
 {
-	// YOUR CODE HERE
+	// FINISHED!!
 	// FIXME: Implement Anti-aliasing here
+	if(samples > 0)
+	{
+		double x_inc = (1.0/((double)buffer_width * (double)samples));
+		double y_inc = (1.0/((double)buffer_height * (double)samples));
+		double sample_x;
+		double sample_y;
+		int sample = 0;
+		glm::dvec3 col = {0.0,0.0,0.0};
+		glm::dvec3 neighbors[9];
+		for(int i=1;i<buffer_width;i++)                                                                      
+		{
+			for(int j=1;j<buffer_height;j++)
+			{
+				col = getPixel(i, j);
+				neighbors[0] = getPixel(i-1, j-1);
+				neighbors[1] = getPixel(i-1, j);
+				neighbors[2] = getPixel(i-1, j+1);
+				neighbors[3] = getPixel(i, j-1);
+				neighbors[4] = getPixel(i, j);
+				neighbors[5] = getPixel(i, j+1);
+				neighbors[6] = getPixel(i+1, j-1);
+				neighbors[7] = getPixel(i+1, j);
+				neighbors[8] = getPixel(i+1, j+1);
+				for(int k=0;k<9;k++)
+				{
+					glm::dvec3 check;
+					check = neighbors[k] - col;
+					if(check[0] > aaThresh || check[1] > aaThresh || check[2] > aaThresh)
+					{
+						sample++;
+					}
+				}
+				//We have samples to take!!
+				if(sample > 0)
+				{
+					col = {0.0,0.0,0.0};
+					double x = double(i - 0.5)/double(buffer_width);
+					double y = double(j - 0.5)/double(buffer_height);
+					unsigned char *pixel = buffer + ( i + j * buffer_width ) * 3;
+					for(int u=0; u<samples; u++)
+					{
+						sample_x = ((double) u) * ((double) x_inc) + x;
+						for(int v=0; v<samples; v++)
+						{
+							sample_y = ((double) v) * ((double) y_inc) + y;
+							col += trace(sample_x, sample_y, pixel, 0);
+						}
+					}
+					col /= pow(samples, 2);
+				}
+				setPixel(i, j, col);
+			}
+		}
+	}
+	return 0;
 }
 
 bool RayTracer::checkRender()
 {
 	// YOUR CODE HERE
 	// FIXME: Return true if tracing is done.
+	//NO FIXING REQUIRED
 	return true;
 }
 

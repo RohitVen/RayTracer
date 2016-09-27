@@ -6,6 +6,7 @@ extern TraceUI* traceUI;
 
 #include "../fileio/bitmap.h"
 #include "../fileio/pngimage.h"
+#include <iostream>
 
 using namespace std;
 extern bool debugMode;
@@ -18,7 +19,7 @@ Material::~Material()
 // the color of that point.
 glm::dvec3 Material::shade(Scene *scene, const ray& r, const isect& i) const
 {
-	// YOUR CODE HERE
+	// FINISHED!!
 
 	// For now, this method just returns the diffuse color of the object.
 	// This gives a single matte color for every distinct surface in the
@@ -36,11 +37,10 @@ glm::dvec3 Material::shade(Scene *scene, const ray& r, const isect& i) const
 	// you'll want to use code that looks something
 	// like this:
 
-	glm::dvec3 color = {0,0,0};
+	glm::dvec3 color = ke(i); //Emissivity
 	glm::dvec3 isect_pos = r.at(i.t);
 
-	color += ke(i); //Emissivity
-	color += (ka(i)*scene->ambient()); //Ambient
+	color += glm::cross(ka(i), scene->ambient()); //Ambient
 
 	for ( vector<Light*>::const_iterator litr = scene->beginLights(); 
 			litr != scene->endLights(); 
@@ -51,29 +51,24 @@ glm::dvec3 Material::shade(Scene *scene, const ray& r, const isect& i) const
 			glm::dvec3 norm = i.N; //Here's the normal of the Intersection
 
 			//Calculating diffusal
-			double dot_prod = glm::dot(light_dir,norm);
-			double to_add = glm::max(dot_prod,0.0); 
-			glm::dvec3 diffusal = to_add * kd(i) 
-			* pLight->getColor(); //Final diffusal
+			double dot_prod = glm::dot(norm, light_dir);
+			double to_add = glm::max(dot_prod, 0.0); 
+			glm::dvec3 diffusal = kd(i) * to_add; //Final Diffusals
 
 			//Calculating specular
-			glm::dvec3 neg_light_dir = light_dir * -1.0; //Since the light is coming from the other direction
-			glm::dvec3 R = neg_light_dir - (2.0 * (norm * neg_light_dir) * norm); // Equation to find a ray about a normal
-			glm::normalize(R);
+			glm::dvec3 R = glm::reflect(light_dir, norm);  // Equation to find a ray about a normal
+			R = glm::normalize(R);
 
-			glm::dvec3 V = (scene->getCamera().getEye() - isect_pos);
-			glm::normalize(V);
+			glm::dvec3 V = (isect_pos - scene->getCamera().getEye());
+			V = glm::normalize(V);
 			dot_prod = glm::dot(V, R);
 			to_add = glm::max(dot_prod, 0.0);
-			glm::dvec3 specular = ks(i) * pow(to_add, shininess(i)) 
-			* pLight->getColor(); //Final specular
-
-			//Calculating f atten
-			glm::dvec3 f = 1.0/(0.25 + (0.25 * light_dir) + (0.25 * glm::dot(light_dir, light_dir)));
-			glm::dvec3 min = glm::min({1.0,1.0,1.0}, f);
+			glm::dvec3 specular = ks(i) * pow(to_add, shininess(i)); //Final specular
 
 			//Add it all up!!
-			color += (diffusal + specular) * min;
+			glm::dvec3 total = (diffusal + specular);
+
+			color += pLight->getColor() * ((pLight->shadowAttenuation(r, isect_pos) * total) * pLight->distanceAttenuation(isect_pos));
 	}
 	return color;
 }
@@ -115,7 +110,7 @@ TextureMap::TextureMap( string filename ) {
 
 glm::dvec3 TextureMap::getMappedValue( const glm::dvec2& coord ) const
 {
-	// YOUR CODE HERE
+	// FINISHED!!
 	// 
 	// In order to add texture mapping support to the 
 	// raytracer, you need to implement this function.
