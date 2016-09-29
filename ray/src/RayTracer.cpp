@@ -151,9 +151,10 @@ glm::dvec3 RayTracer::traceRay(ray& r, const glm::dvec3& thresh, int depth, doub
 		// 
 		// FIXME: Add CubeMap support here.
 
-		if(traceUI->cubeMap())
+		if(haveCubeMap())
 		{
-			return cubemap->getColor(r);
+			// cout<<"\n\nWe have a cubemap!";
+			return getCubeMap()->getColor(r);
 		}
 
 		return glm::dvec3(0.0, 0.0, 0.0);

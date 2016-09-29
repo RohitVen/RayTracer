@@ -68,7 +68,8 @@ glm::dvec3 Material::shade(Scene *scene, const ray& r, const isect& i) const
 			//Add it all up!!
 			glm::dvec3 total = (diffusal + specular);
 
-			color += pLight->getColor() * ((pLight->shadowAttenuation(r, isect_pos) * total) * pLight->distanceAttenuation(isect_pos));
+			color += pLight->getColor() * ((pLight->shadowAttenuation(r, isect_pos)* total)
+			 * pLight->distanceAttenuation(isect_pos));
 	}
 	return color;
 }

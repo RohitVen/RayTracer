@@ -116,14 +116,10 @@ bool TrimeshFace::intersectLocal(ray& r, isect& i) const
     glm::dvec3 c_b_q = glm::cross(c_coords - b_coords, q - b_coords);
     glm::dvec3 a_c_q = glm::cross(a_coords - c_coords, q - c_coords);
     glm::dvec3 a_b_c = glm::cross(b_coords - a_coords, c_coords - a_coords);
-    b_a_q = glm::normalize(b_a_q);
-    c_b_q = glm::normalize(c_b_q);
-    a_c_q = glm::normalize(a_c_q);
-    a_b_c = glm::normalize(a_b_c);
-    double AreaQBC = glm::dot(c_b_q, normal);
-    double AreaAQC = glm::dot(a_c_q, normal);
-    double AreaABQ = glm::dot(b_a_q, normal);
-    double AreaABC = glm::dot(a_b_c, normal);
+    double AreaQBC = glm::dot(c_b_q, normal)/2;
+    double AreaAQC = glm::dot(a_c_q, normal)/2;
+    double AreaABQ = glm::dot(b_a_q, normal)/2;
+    double AreaABC = glm::dot(a_b_c, normal)/2;
 
     if(AreaQBC < 0 || AreaAQC < 0 || AreaABQ < 0)
     {
@@ -143,12 +139,17 @@ bool TrimeshFace::intersectLocal(ray& r, isect& i) const
     i.setUVCoordinates({alpha, beta});
     i.setObject(this);
 
-    if(parent->vertNorms) //Interpolating intersection Normal if parent has vertNorms
+    if(traceUI->smShadSw()) //Interpolating intersection Normal if parent has vertNorms
     {
+        if(parent->normals.size() <= 0)
+        // cout<<"\n\nentered!!!"
+        {
+            parent->generateNormals();
+        }
         glm::dvec3 norma = parent->normals[ids[0]];
         glm::dvec3 normb = parent->normals[ids[1]];
         glm::dvec3 normc = parent->normals[ids[2]];
-        i.N = (norma * alpha) + (normb * beta) + (normc * gamma);
+        i.N = (alpha * norma) + (beta * normb) + (gamma * normc);
         i.N = glm::normalize(i.N);
     }
     else
@@ -157,11 +158,7 @@ bool TrimeshFace::intersectLocal(ray& r, isect& i) const
         i.N = glm::normalize(i.N);
     }
 
-    if(parent->materials.empty()) //Interpolating materials as necessary
-    {
-            i.setMaterial(getMaterial());
-    }
-    else
+    if(parent->materials.size() > 0) //Interpolating materials as necessary
     {
         Material mata = (*parent->materials[ids[0]]);
         Material matb = (*parent->materials[ids[1]]);
@@ -172,6 +169,10 @@ bool TrimeshFace::intersectLocal(ray& r, isect& i) const
         mat += (gamma * matc);
 
         i.setMaterial(mat);
+    }
+    else
+    {
+        i.setMaterial(getMaterial());
     }
 
     return true;
