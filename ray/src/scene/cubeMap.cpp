@@ -7,38 +7,57 @@ glm::dvec3 CubeMap::getColor(ray r) const {
 
 	// YOUR CODE HERE
 	// FIXME: Implement Cube Map here
-	double min = 0;
-	int index = -1;
-	glm::dvec3 coord_vals[6] = {glm::dvec3(1,0,0), glm::dvec3(-1,0,0), 
-		glm::dvec3(0,1,0), glm::dvec3(0,-1,0), 
-		glm::dvec3(0,0,1), glm::dvec3(0,0,-1)};
-	for(int i = 0;i < 6; i++)
+	double absX = fabs(r.d[0]);
+	double absY = fabs(r.d[1]);
+	double absZ = fabs(r.d[2]);
+	double max = glm::max(absX, absY);
+	max = glm::max(max, absZ);
+	//Pos X and max
+	if(r.d[0] > 0 && max == absX)
 	{
-		double t = 1.0/(glm::dot(coord_vals[i], r.d));
-		if(t > 0 && (t < min || index == -1))
-		{
-			index = i;
-			min = t;
-		}
+		double x = r.d[1]/max;
+		double y = r.d[2]/max;
+		glm::dvec2 proj = (glm::dvec2(y, x) + glm::dvec2(1,1)) / 2.0;
+		return tMap[0]->getMappedValue(proj);
 	}
-
-	glm::dvec3 isection = r.d * min;
-
-	glm::dvec2 proj(0,0);
-	glm::dvec3 p = isection - (glm::dot(isection, coord_vals[index] * coord_vals[index]));
-
-	if(index == 0 || index == 1)
+	//Neg X and max
+	if(r.d[0] < 0 && max == absX)
 	{
-		proj = glm::dvec2(p.z,p.y);
+		double x = r.d[1]/max;
+		double y = r.d[2]/max;
+		glm::dvec2 proj = (glm::dvec2(-1.0*y, x) + glm::dvec2(1,1)) / 2.0;
+		return tMap[1]->getMappedValue(proj);
 	}
-	if(index == 2 || index == 3)
+	//Pos Y and max
+	if(r.d[1] > 0 && max == absY)
 	{
-		proj = glm::dvec2(p.x,p.z);
+		double x = r.d[0]/max;
+		double y = r.d[2]/max;
+		glm::dvec2 proj = (glm::dvec2(x ,y) + glm::dvec2(1,1)) / 2.0;
+		return tMap[2]->getMappedValue(proj);
 	}
-	if(index == 4 || index == 5)
+	//Neg Y and max
+	if(r.d[1] < 0 && max == absY)
 	{
-		proj = glm::dvec2(p.x,p.y);
+		double x = r.d[0]/max;
+		double y = r.d[2]/max;
+		glm::dvec2 proj = (glm::dvec2(x ,-1.0*y) + glm::dvec2(1,1)) / 2.0;
+		return tMap[3]->getMappedValue(proj);
 	}
-	glm::dvec2 uv = (proj + glm::dvec2(1, 1))/2.0;
-	return tMap[index]->getMappedValue(uv);
+	//Pos Z and max
+	if(r.d[2] > 0 && max == absZ)
+	{
+		double x = r.d[0]/max;
+		double y = r.d[1]/max;
+		glm::dvec2 proj = (glm::dvec2(-1.0*x ,y) + glm::dvec2(1,1)) / 2.0;
+		return tMap[5]->getMappedValue(proj);
+	}
+	//Neg Z and max
+	if(r.d[2] < 0 && max == absZ)
+	{
+		double x = r.d[0]/max;
+		double y = r.d[1]/max;
+		glm::dvec2 proj = (glm::dvec2(x ,y) + glm::dvec2(1,1)) / 2.0;
+		return tMap[4]->getMappedValue(proj);
+	}
 }
